@@ -10,5 +10,10 @@
     "require": {
         "php": "^7.1",
         "nikic/php-parser": "4"
+    },
+    "autoload": {
+        "psr-4": {
+            "De\\Idrinth\\TaintedPhp\\": "src"
+        }
     }
 }
