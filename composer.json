@@ -1,0 +1,14 @@
+{
+    "name": "vendor/tainted-php",
+    "description": "Description of project tainted-php.",
+    "authors": [
+        {
+            "name": "BJ",
+            "email": "your@email.here"
+        }
+    ],
+    "require": {
+        "php": "^7.1",
+        "nikic/php-parser": "4"
+    }
+}
