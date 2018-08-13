@@ -6,6 +6,7 @@ class TaintedIf
 {
     private $name;
     /**
+     *
      * @var TaintedIf[]
      */
     private $taintedBy = [];
@@ -55,5 +56,9 @@ class TaintedIf
     public function __toString()
     {
         return $this->toString(2);
+    }
+    public function hasTainters()
+    {
+        return count($this->taintedBy) > 0;
     }
 }

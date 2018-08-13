@@ -1,5 +1,5 @@
 <?php
-
+// phpcs:disable PSR1.Files.SideEffects
 $a = 17;
 $b = $_POST['c'];
 $c = a_func().file_get_contents($b.'.dds');
@@ -17,4 +17,4 @@ function doWork($zzz)
     global $link;
     return mysql_query($link, $zzz);
 }
-$q = require $b;
+$q = include $b;

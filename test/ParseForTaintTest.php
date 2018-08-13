@@ -10,19 +10,6 @@ use ReflectionProperty;
 class ParseForTaintTest extends TestCase
 {
     private static $simpleProcedural = [
-        'mysql_fetch_assoc()' => [],
-        'mysqli_fetch_assoc()' => [],
-        'mysql_fetch_all()' => [],
-        'mysqli_fetch_all()' => [],
-        'getcwd()' => [],
-        'file_get_contents()' => [],
-        '$_POST' => [],
-        '$_GLOBALS' => [],
-        '$_REQUEST' => [],
-        '$_GET' => [],
-        '$_SERVER' => [],
-        '$argv' => [],
-        'global' => [],
         'mysql_query()#1' => ['$a'],
         'mysqli_query()#1' => [],
         'eval()#0' => [],
@@ -103,7 +90,7 @@ class ParseForTaintTest extends TestCase
         static::assertEquals(
             0,
             count($missing) + count($additional),
-            $text.json_encode(['additional' => $additional, 'missing' => $missing])
+            $text.json_encode(['additional' => array_values($additional), 'missing' => array_values($missing)])
         );
     }
 
@@ -111,6 +98,12 @@ class ParseForTaintTest extends TestCase
     {
         $parser = new ParseForTaint();
         $result = $parser->parse(__DIR__.'/files/simple-procedural.php');
+        static::assertContainsOnly(
+            TaintedIf::class,
+            $result,
+            false,
+            "Some Elements of result were of a wrong type."
+        );
         $this->assertArrayStructure(
             array_keys(self::$simpleProcedural),
             array_keys($result),

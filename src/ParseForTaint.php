@@ -73,6 +73,13 @@ class ParseForTaint
              $this->elements[$element] = new MustBeUntainted($element);
         }
     }
+    private function isStringLike($var)
+    {
+        if (is_string($var)|| is_float($var)|| is_int($var)) {
+            return true;
+        }
+        return is_object($var) && method_exists($var, '__toString');
+    }
     public function parse($file)
     {
         $parser = (new ParserFactory())->create(ParserFactory::PREFER_PHP7);
@@ -80,15 +87,20 @@ class ParseForTaint
         if (is_array($ast)) {
             $this->process($ast, '');
         }
-        return $this->elements;
+        return array_filter(
+            $this->elements,
+            function ($item) {
+                return !$item instanceof AlwaysTainted;
+            }
+        );
     }
     private function appendPrefix($node, $prefix)
     {
-        if ($node instanceof FuncCall && is_string($node->name)) {
+        if ($node instanceof FuncCall && $this->isStringLike($node->name)) {
             return ltrim(preg_replace('/(^|\\\\)[^\\\\]+?$/', '\\', $prefix).'\\'.$node->name.'()', '\\');
         }
         if ($node instanceof Variable) {
-            if (!is_string($node->name)) {
+            if (!$this->isStringLike($node->name)) {
                 return;
             }
             $var = '$'.$node->name;
@@ -166,8 +178,8 @@ class ParseForTaint
                 $this->addTaintFromExpression("$name#$num", $data, $prefix);
             }
         }
-        if (is_string($taints)) {
-            $this->elements[$taints]->addTaintSource($this->elements[$name]);
+        if ($this->isStringLike($taints)) {
+            $this->elements["$taints"]->addTaintSource($this->elements[$name]);
         }
     }
     private function process(array $ast, $prefix, $uses = [])
