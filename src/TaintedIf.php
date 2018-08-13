@@ -42,9 +42,21 @@ class TaintedIf
     }
     public function addTaintSource(TaintedIf $source)
     {
-        $this->taintedBy[] = $source;
+        if(!isset($this->taintedBy[$source->getName()])) {
+            $this->taintedBy[$source->getName()] = $source;
+        }
+    }
+    public function toString($indent) {
+        $content = str_repeat(' ', $indent)."$this->name";
+        $tainted = $this->isTainted();
+        foreach ($this->taintedBy as $taint) {
+            if ($tainted === $taint->isTainted()) {
+                $content .= "\n".$taint->toString($indent+2);
+            }
+        }
+        return $content;
     }
     public function __toString() {
-        return "$this->name tainted: ". json_encode($this->isTainted()).' insecure: '.json_encode($this->mayBeTainted());
+        return $this->toString(2);
     }
 }

@@ -96,4 +96,25 @@ class ParseForTaint
             }
         }
     }
+    public function __toString()
+    {
+        $content = ['tainted' => [], 'unsafe' => []];
+        foreach ($this->elements as  $element) {
+            if (!$element instanceof AlwaysTainted) {
+                if ($element->isTainted()) {
+                    $content['tainted'][] = $element;
+                } elseif ($element->mayBeTainted()) {
+                    $content['unsafe'][] = $element;
+                }
+            }
+        }
+        $string = '';
+        if (count($content['tainted']) > 0) {
+            $string .= "\nTAINTED\n".implode("\n", $content['tainted'])."\n";
+        }
+        if (count($content['unsafe']) > 0) {
+            $string .= "\nUNSAFE\n".implode("\n", $content['unsafe'])."\n";
+        }
+        return $string;
+    }
 }

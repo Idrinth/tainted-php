@@ -4,10 +4,12 @@ $a = 17;
 $b = $_POST['c'];
 $c = a_func();
 file_get_contents($b.'.dds');
-function handle()
+function handle($z)
 {
     global $a;
+    global $link;
     $r = $a;
-    $d = mysqli_fetch_all($result);
-    return $r;
+    $d = mysqli_fetch_all(mysqli_query($link, $z));
+    return $r.$d;
 }
+eval(handle($c));
