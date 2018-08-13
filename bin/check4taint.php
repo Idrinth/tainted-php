@@ -1,7 +1,7 @@
 <?php
 
-require_once 'vendor/autoload.php';
+require_once __DIR__.'/../vendor/autoload.php';
 
 $parser = new De\Idrinth\TaintedPhp\ParseForTaint();
-$parser->parse(__DIR__.'/test.php');
+$parser->parse($file);
 echo "$parser";

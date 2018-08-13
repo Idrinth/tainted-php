@@ -63,13 +63,13 @@ class ParseForTaint
         'include()#0',
         'include_once()#0',
     ];
-    public function __construct(array $initialTainters = [])
+    public function __construct(array $initialTainters = [], array $forceTaintLess = [])
     {
         $this->elements = [];
         foreach(array_merge($initialTainters, self::$funcs, self::$globals)as $element) {
             $this->elements[$element] = new AlwaysTainted($element);
         }
-        foreach (self::$mustBeUntainted as $element) {
+        foreach (array_merge($forceTaintLess, self::$mustBeUntainted) as $element) {
              $this->elements[$element] = new MustBeUntainted($element);
         }
     }

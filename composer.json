@@ -1,19 +1,34 @@
 {
-    "name": "vendor/tainted-php",
-    "description": "Description of project tainted-php.",
+    "name": "idrinth/tainted-php",
+    "type": "project",
+    "description": "Checks files and projects for tainted calls.",
+    "keywords": [
+        "taint",
+        "ci",
+        "static",
+        "analyser"
+    ],
     "authors": [
         {
-            "name": "BJ",
-            "email": "your@email.here"
+            "name": "Björn Büttner",
+            "homepage": "https://github.com/idrinth"
         }
     ],
     "require": {
         "php": "^7.1",
         "nikic/php-parser": "4"
     },
+    "require-dev": {
+        "phpunit/phpunit": "^7"
+    },
     "autoload": {
         "psr-4": {
             "De\\Idrinth\\TaintedPhp\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "De\\Idrinth\\Test\\TaintedPhp\\": "test"
         }
     }
 }
