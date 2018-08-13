@@ -2,8 +2,7 @@
 
 $a = 17;
 $b = $_POST['c'];
-$c = a_func();
-file_get_contents($b.'.dds');
+$c = a_func().file_get_contents($b.'.dds');
 function handle($z)
 {
     global $a;
@@ -13,3 +12,9 @@ function handle($z)
     return $r.$d;
 }
 eval(handle($c));
+function doWork($zzz)
+{
+    global $link;
+    return mysql_query($link, $zzz);
+}
+$q = require $b;

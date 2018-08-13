@@ -29,9 +29,6 @@ class TaintedIf
     }
     public function mayBeTainted()
     {
-        if ($this->isTainted()) {
-            return true;
-        }
         foreach ($this->taintedBy as $taintedIf)
         {
             if($taintedIf->mayBeTainted()) {
