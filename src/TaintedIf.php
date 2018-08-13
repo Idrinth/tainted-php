@@ -19,9 +19,8 @@ class TaintedIf
     }
     public function isTainted()
     {
-        foreach ($this->taintedBy as $taintedIf)
-        {
-            if($taintedIf->isTainted()) {
+        foreach ($this->taintedBy as $taintedIf) {
+            if ($taintedIf->isTainted()) {
                 return true;
             }
         }
@@ -29,9 +28,8 @@ class TaintedIf
     }
     public function mayBeTainted()
     {
-        foreach ($this->taintedBy as $taintedIf)
-        {
-            if($taintedIf->mayBeTainted()) {
+        foreach ($this->taintedBy as $taintedIf) {
+            if ($taintedIf->mayBeTainted()) {
                 return true;
             }
         }
@@ -39,11 +37,12 @@ class TaintedIf
     }
     public function addTaintSource(TaintedIf $source)
     {
-        if(!isset($this->taintedBy[$source->getName()])) {
+        if (!isset($this->taintedBy[$source->getName()])) {
             $this->taintedBy[$source->getName()] = $source;
         }
     }
-    public function toString($indent) {
+    public function toString($indent)
+    {
         $content = str_repeat(' ', $indent)."$this->name";
         $tainted = $this->isTainted();
         foreach ($this->taintedBy as $taint) {
@@ -53,7 +52,8 @@ class TaintedIf
         }
         return $content;
     }
-    public function __toString() {
+    public function __toString()
+    {
         return $this->toString(2);
     }
 }

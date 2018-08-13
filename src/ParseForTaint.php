@@ -66,16 +66,17 @@ class ParseForTaint
     public function __construct(array $initialTainters = [], array $forceTaintLess = [])
     {
         $this->elements = [];
-        foreach(array_merge($initialTainters, self::$funcs, self::$globals)as $element) {
+        foreach (array_merge($initialTainters, self::$funcs, self::$globals) as $element) {
             $this->elements[$element] = new AlwaysTainted($element);
         }
         foreach (array_merge($forceTaintLess, self::$mustBeUntainted) as $element) {
              $this->elements[$element] = new MustBeUntainted($element);
         }
     }
-    public function parse($file) {
+    public function parse($file)
+    {
         $parser = (new ParserFactory())->create(ParserFactory::PREFER_PHP7);
-        $ast = $parser->parse(file_get_contents($file));
+        $ast = $parser->parse(file_get_contents($file) ?: '');
         if (is_array($ast)) {
             $this->process($ast, '');
         }
@@ -83,10 +84,13 @@ class ParseForTaint
     }
     private function appendPrefix($node, $prefix)
     {
-        if ($node instanceof FuncCall) {
-            return ltrim(preg_replace('/(^|\\\\)[^\\\\]+?$/','\\', $prefix).'\\'.$node->name.'()', '\\');
+        if ($node instanceof FuncCall && is_string($node->name)) {
+            return ltrim(preg_replace('/(^|\\\\)[^\\\\]+?$/', '\\', $prefix).'\\'.$node->name.'()', '\\');
         }
         if ($node instanceof Variable) {
+            if (!is_string($node->name)) {
+                return;
+            }
             $var = '$'.$node->name;
             if (in_array($var, self::$globals, true)) {
                 return $var;
@@ -99,7 +103,7 @@ class ParseForTaint
     }
     private function addVariableTaint($taints, Variable $var, $prefix)
     {
-        $name = $this->appendPrefix($var , $prefix);
+        $name = $this->appendPrefix($var, $prefix);
         if (!isset($this->elements[$name])) {
             $this->elements[$name] = new TaintedIf($name);
         }
@@ -107,7 +111,9 @@ class ParseForTaint
     }
     private function addArrayDimFetchTaint($taints, ArrayDimFetch $var, $prefix)
     {
-        $this->addVariableTaint($taints, $var->var, $prefix);
+        if ($var->var instanceof Variable) {
+            $this->addVariableTaint($taints, $var->var, $prefix);
+        }
     }
     private function addConcatTaint($taints, Expr $left, Expr $right, $prefix)
     {
@@ -135,7 +141,7 @@ class ParseForTaint
         } elseif ($expression instanceof Yield_) {
             $this->addTaintFromExpression($taints, $expression->key, $prefix);
             $this->addTaintFromExpression($taints, $expression->value, $prefix);
-        } elseif($expression instanceof Include_) {
+        } elseif ($expression instanceof Include_) {
             $this->addTaintFromFunctionLike(
                 ['include()','include_once()','require()','require_once()'][$expression->type - 1],
                 [$expression->expr],
@@ -145,8 +151,8 @@ class ParseForTaint
     }
     private function addTaintFromFunctionCall(FuncCall $expression, $prefix, $taints = null)
     {
-        $this->addTaintFromFunctionLike($this->appendPrefix($expression , $prefix), $expression->args, $prefix, $taints);
-        $this->addTaintFromFunctionLike($this->appendPrefix($expression , ''), $expression->args, $prefix, $taints);
+        $this->addTaintFromFunctionLike($this->appendPrefix($expression, $prefix), $expression->args, $prefix, $taints);
+        $this->addTaintFromFunctionLike($this->appendPrefix($expression, ''), $expression->args, $prefix, $taints);
     }
     private function addTaintFromFunctionLike($name, array $args, $prefix, $taints = null)
     {
@@ -168,25 +174,26 @@ class ParseForTaint
     {
         foreach ($ast as $node) {
             if ($node instanceof Expression) {
-                if($node->expr instanceof Assign || $node->expr instanceof Concat2) {
+                if ($node->expr instanceof Assign || $node->expr instanceof Concat2) {
                     $var = $this->appendPrefix($node->expr->var, $prefix);
                     $this->addTaintFromExpression($var, $node->expr->expr, $prefix);
                 } elseif ($node->expr instanceof Eval_) {
                     $this->addTaintFromFunctionLike('eval()', [$node->expr->expr], $prefix);
                 }
-            } elseif($node instanceof Function_) {
+            } elseif ($node instanceof Function_) {
                 $actualName = ltrim($prefix.'\\'.$node->name->name.'()', '\\');
                 foreach ($node->getParams() as $num => $param) {
                     if (!isset($this->elements[$actualName."#$num"])) {
                         $this->elements[$actualName."#$num"] = new MayBeTainted($actualName."#$num");
                     }
+                    $paramName = $actualName."\${$param->var->name}";
                     if (!isset($this->elements[$actualName."\${$param->var->name}"])) {
-                        $this->elements[$actualName."\${$param->var->name}"] = new TaintedIf($actualName."\${$param->var->name}");
+                        $this->elements[$paramName] = new TaintedIf($paramName);
                     }
-                    $this->elements[$actualName."\${$param->var->name}"]->addTaintSource($this->elements[$actualName."#$num"]);
+                    $this->elements[$paramName]->addTaintSource($this->elements[$actualName."#$num"]);
                 }
                 $this->process($node->getStmts(), $actualName, $uses);
-            } elseif($node instanceof Global_) {
+            } elseif ($node instanceof Global_) {
                 foreach ($node->vars as $var) {
                     $name = $this->appendPrefix($var, $prefix);
                     if (!isset($this->elements[$name])) {
@@ -198,7 +205,7 @@ class ParseForTaint
                 $this->addTaintFromExpression($prefix, $node->expr, $prefix);
             } elseif ($node instanceof FuncCall) {
                 $this->addTaintFromFunctionCall($node, $prefix);
-            } elseif($node instanceof Include_) {
+            } elseif ($node instanceof Include_) {
                 $this->addTaintFromFunctionLike(
                     ['include()','include_once()','require()','require_once()'][$node->type - 1],
                     [$node->expr],
@@ -210,7 +217,7 @@ class ParseForTaint
     public function __toString()
     {
         $content = ['tainted' => [], 'unsafe' => []];
-        foreach ($this->elements as  $element) {
+        foreach ($this->elements as $element) {
             if ($element instanceof MustBeUntainted) {
                 if ($element->isTainted()) {
                     $content['tainted'][] = $element;

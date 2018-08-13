@@ -101,7 +101,8 @@ class ParseForTaintTest extends TestCase
         $missing    = array_diff($expected, $has);
         $additional = array_diff($has, $expected);
         static::assertEquals(
-            0, count($missing) + count($additional),
+            0,
+            count($missing) + count($additional),
             $text.json_encode(['additional' => $additional, 'missing' => $missing])
         );
     }
@@ -110,8 +111,11 @@ class ParseForTaintTest extends TestCase
     {
         $parser = new ParseForTaint();
         $result = $parser->parse(__DIR__.'/files/simple-procedural.php');
-        $this->assertArrayStructure(array_keys(self::$simpleProcedural),
-            array_keys($result), "Result: ");
+        $this->assertArrayStructure(
+            array_keys(self::$simpleProcedural),
+            array_keys($result),
+            "Result: "
+        );
         foreach (self::$simpleProcedural as $name => $structure) {
             $this->assertTaintedIfStructure($structure, $result[$name]);
         }
