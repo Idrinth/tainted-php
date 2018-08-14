@@ -11,12 +11,16 @@ use PhpParser\Node\Expr\BinaryOp\Concat;
 use PhpParser\Node\Expr\Eval_;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\Include_;
+use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Expr\Yield_;
 use PhpParser\Node\Expr\YieldFrom;
+use PhpParser\Node\FunctionLike;
+use PhpParser\Node\Stmt\ClassLike;
+use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Expression;
-use PhpParser\Node\Stmt\Function_;
 use PhpParser\Node\Stmt\Global_;
+use PhpParser\Node\Stmt\Namespace_;
 use PhpParser\Node\Stmt\Return_;
 use PhpParser\ParserFactory;
 
@@ -37,7 +41,7 @@ class ParseForTaint
         'mysqli_fetch_assoc()',
         'mysql_fetch_all()',
         'mysqli_fetch_all()',
-        'getcwd()',
+        'getopt()',
         'file_get_contents()',
     ];
     private static $mustBeUntainted = [
@@ -97,7 +101,14 @@ class ParseForTaint
     private function appendPrefix($node, $prefix)
     {
         if ($node instanceof FuncCall && $this->isStringLike($node->name)) {
-            return ltrim(preg_replace('/(^|\\\\)[^\\\\]+?$/', '\\', $prefix).'\\'.$node->name.'()', '\\');
+            if (!$prefix || $prefix{strlen($prefix)-1} === '\\') {
+                var_dump($prefix.$node->name.'()');
+                return $prefix.$node->name.'()';
+            }
+            $parts = explode('\\', $prefix);
+            array_pop($parts);
+            var_dump(ltrim(rtrim(implode('\\', $parts), '\\').'\\'.$node->name.'()', '\\'));
+            return ltrim(rtrim(implode('\\', $parts), '\\').'\\'.$node->name.'()', '\\');
         }
         if ($node instanceof Variable) {
             if (!$this->isStringLike($node->name)) {
@@ -109,6 +120,7 @@ class ParseForTaint
             }
             if (preg_match('/\(\)$/', $prefix)) {
                 $var = $prefix.$var;
+                var_dump($var);
             }
             return ltrim($var, '\\');
         }
@@ -176,27 +188,50 @@ class ParseForTaint
                 $this->addTaintFromExpression("$name#$num", $data->value, $prefix);
             } elseif ($data instanceof Expr) {
                 $this->addTaintFromExpression("$name#$num", $data, $prefix);
+            } elseif ($data instanceof Expression) {
+                $this->handleExpression($data, "$name#$num");
             }
         }
         if ($this->isStringLike($taints)) {
             $this->elements["$taints"]->addTaintSource($this->elements[$name]);
         }
     }
+    private function handleExpression(Expression $node, $prefix)
+    {
+        if ($node->expr instanceof Assign || $node->expr instanceof Concat2) {
+            $var = $this->appendPrefix($node->expr->var, $prefix);
+            $this->addTaintFromExpression($var, $node->expr->expr, $prefix);
+        } elseif ($node->expr instanceof Eval_) {
+            $this->addTaintFromFunctionLike('eval()', [$node->expr->expr], $prefix);
+        } elseif ($node->expr instanceof FuncCall) {
+            $this->addTaintFromFunctionCall($node->expr, $prefix);
+        } elseif ($node->expr instanceof StaticCall) {
+            $this->addTaintFromFunctionCall(
+                $node->expr,
+                ltrim("$prefix\\".$node->class->name->toString().'::'.$node->name->name.'()', '\\')
+            );
+        }
+    }
     private function process(array $ast, $prefix, $uses = [])
     {
         foreach ($ast as $node) {
             if ($node instanceof Expression) {
-                if ($node->expr instanceof Assign || $node->expr instanceof Concat2) {
-                    $var = $this->appendPrefix($node->expr->var, $prefix);
-                    $this->addTaintFromExpression($var, $node->expr->expr, $prefix);
-                } elseif ($node->expr instanceof Eval_) {
-                    $this->addTaintFromFunctionLike('eval()', [$node->expr->expr], $prefix);
+                $this->handleExpression($node, $prefix);
+            } elseif ($node instanceof FunctionLike) {
+                $paramClass = MayBeTainted::class;
+                if ($node instanceof Expr\Closure) {
+                    $actualName = ltrim($prefix.'\\Closure'.$node->getStartLine().'()', '\\');
+                } elseif($node instanceof ClassMethod) {
+                    $actualName = ltrim($prefix.($node->isStatic()?'::':'->').$node->name->name.'()', '\\');
+                    if (!$node->isPublic()) {
+                        $paramClass = TaintedIf::class;
+                    }
+                } else {
+                    $actualName = ltrim($prefix.$node->name->name.'()', '\\');
                 }
-            } elseif ($node instanceof Function_) {
-                $actualName = ltrim($prefix.'\\'.$node->name->name.'()', '\\');
                 foreach ($node->getParams() as $num => $param) {
                     if (!isset($this->elements[$actualName."#$num"])) {
-                        $this->elements[$actualName."#$num"] = new MayBeTainted($actualName."#$num");
+                        $this->elements[$actualName."#$num"] = new $paramClass($actualName."#$num");
                     }
                     $paramName = $actualName."\${$param->var->name}";
                     if (!isset($this->elements[$actualName."\${$param->var->name}"])) {
@@ -215,14 +250,16 @@ class ParseForTaint
                 }
             } elseif ($node instanceof Return_) {
                 $this->addTaintFromExpression($prefix, $node->expr, $prefix);
-            } elseif ($node instanceof FuncCall) {
-                $this->addTaintFromFunctionCall($node, $prefix);
             } elseif ($node instanceof Include_) {
                 $this->addTaintFromFunctionLike(
                     ['include()','include_once()','require()','require_once()'][$node->type - 1],
                     [$node->expr],
                     $prefix
                 );
+            } elseif ($node instanceof Namespace_) {
+                $this->process($node->stmts, $node->name->toString().'\\');
+            } elseif ($node instanceof ClassLike) {
+                $this->process($node->stmts, ltrim("$prefix".$node->name->toString(), '\\'));
             }
         }
     }

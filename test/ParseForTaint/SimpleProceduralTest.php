@@ -6,7 +6,7 @@ use De\Idrinth\Test\TaintedPhp\ParseForTaintTest;
 
 class SimpleProceduralTest extends ParseForTaintTest
 {
-    private static $simpleProcedural = [
+    private static $expected = [
         'mysql_query()#1' => ['doWork()$zzz'],
         'mysqli_query()#1' => ['handle()$z'],
         'eval()#0' => ['handle()'],
@@ -54,6 +54,6 @@ class SimpleProceduralTest extends ParseForTaintTest
     ];
     protected function getExpectedOutcome()
     {
-        return self::$simpleProcedural;
+        return self::$expected;
     }
 }

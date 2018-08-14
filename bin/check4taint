@@ -1,0 +1,37 @@
+#!/usr/bin/env php
+
+<?php
+
+use De\Idrinth\TaintedPhp\ParseForTaint;
+
+require_once __DIR__.'/../vendor/autoload.php';
+
+$parser = new ParseForTaint();
+foreach((function($files) {
+    if (isset($files[2]) && preg_match('/check4taint$/', $files[2])) {
+        array_shift($files);
+    }
+    if (isset($files[1]) && preg_match('/check4taint$/', $files[1])) {
+        array_shift($files);
+    }
+    foreach ($files as $file) {
+        $file = realpath($file{0} === '/' ? $file : getcwd().'/'.$file);
+        if (is_dir($file)) {
+            yield from new RegexIterator(
+                new RecursiveIteratorIterator(
+                    new RecursiveDirectoryIterator(
+                        $file,
+                        RecursiveDirectoryIterator::CURRENT_AS_PATHNAME | RecursiveDirectoryIterator::SKIP_DOTS
+                    )
+                ),
+                '/.+\.php$/'
+            );
+        } elseif(is_file($file)) {
+            yield $file;
+        }
+    }
+})($argv) as $file) {
+    echo ".";
+    $parser->parse($file);
+}
+echo "$parser";
