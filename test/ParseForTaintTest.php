@@ -7,54 +7,22 @@ use De\Idrinth\TaintedPhp\TaintedIf;
 use PHPUnit\Framework\TestCase;
 use ReflectionProperty;
 
-class ParseForTaintTest extends TestCase
+abstract class ParseForTaintTest extends TestCase
 {
-    private static $simpleProcedural = [
-        'mysql_query()#1' => ['$a'],
-        'mysqli_query()#1' => [],
-        'eval()#0' => [],
-        'file_get_contents()#0' => [],
-        'file_put_contents()#0' => [],
-        'exec()#0' => [],
-        'system()#0' => [],
-        'proc_open()#0' => [],
-        'passthru()#0' => [],
-        'shell_exec()#0' => [],
-        'PDO->query()#0' => [],
-        'PDO->execute()#0' => [],
-        'PDO->prepare()#0' => [],
-        'basename()#0' => [],
-        'dirname()#0' => [],
-        'file()#0' => [],
-        'fopen()#0' => [],
-        'require()#0' => [],
-        'require_once()#0' => [],
-        'include()#0' => [],
-        'include_once()#0' => [],
-        '$a' => [],
-        '$b' => [],
-        '$c' => [],
-        'a_func()' => [],
-        'handle()#0' => [],
-        'handle()$z' => [],
-        'handle()$a' => [],
-        'handle()$link' => [],
-        'handle()$r' => [],
-        'handle()$d' => [],
-        'mysqli_fetch_all()#0' => [],
-        'mysqli_query()' => [],
-        'mysqli_query()#0' => [],
-        'handle()' => [],
-        'eval()' => [],
-        'doWork()#0' => [],
-        'doWork()$zzz' => [],
-        'doWork()$link' => [],
-        'doWork()' => [],
-        'mysql_query()' => [],
-        'mysql_query()#0' => [],
-        '$q' => [],
-        'require()' => [],
-    ];
+    private function getFile()
+    {
+        $class = explode('\\', get_class($this));
+        $class = array_pop($class);
+        return __DIR__.'/files/'.$this->fromCamelCaseToSnakeCase(substr($class, 0, -4)).'.php';
+    }
+    private function fromCamelCaseToSnakeCase($input) {
+        preg_match_all('!([A-Z][A-Z0-9]*(?=$|[A-Z][a-z0-9])|[A-Za-z][a-z0-9]+)!', $input, $matches);
+        foreach ($matches[0] as &$match) {
+          $match = $match == strtoupper($match) ? strtolower($match) : lcfirst($match);
+        }
+        return implode('_', $matches[0]);
+    }
+    abstract protected function getExpectedOutcome();
 
     private function assertTaintedIfStructure(array $expected, TaintedIf $taintedIf)
     {
@@ -94,22 +62,23 @@ class ParseForTaintTest extends TestCase
         );
     }
 
-    public function testSimpleProcedural()
+    public function testParse()
     {
         $parser = new ParseForTaint();
-        $result = $parser->parse(__DIR__.'/files/simple-procedural.php');
+        $result = $parser->parse($this->getFile());
         static::assertContainsOnly(
             TaintedIf::class,
             $result,
             false,
             "Some Elements of result were of a wrong type."
         );
+        $outcome = $this->getExpectedOutcome();
         $this->assertArrayStructure(
-            array_keys(self::$simpleProcedural),
+            array_keys($outcome),
             array_keys($result),
             "Result: "
         );
-        foreach (self::$simpleProcedural as $name => $structure) {
+        foreach ($outcome as $name => $structure) {
             $this->assertTaintedIfStructure($structure, $result[$name]);
         }
     }
