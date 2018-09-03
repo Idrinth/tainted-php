@@ -191,6 +191,7 @@ class ParseForTaint
             } elseif ($data instanceof Expression) {
                 $this->handleExpression($data, "$name#$num");
             }
+            $this->elements[$name]->addUndefinedFunctionTaintSource($this->elements["$name#$num"]);
         }
         if ($this->isStringLike($taints)) {
             $this->elements["$taints"]->addTaintSource($this->elements[$name]);
@@ -240,6 +241,7 @@ class ParseForTaint
                     $this->elements[$paramName]->addTaintSource($this->elements[$actualName."#$num"]);
                 }
                 $this->process($node->getStmts(), $actualName, $uses);
+                $this->elements[$actualName]->markDefined();
             } elseif ($node instanceof Global_) {
                 foreach ($node->vars as $var) {
                     $name = $this->appendPrefix($var, $prefix);

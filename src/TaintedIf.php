@@ -6,13 +6,20 @@ class TaintedIf
 {
     private $name;
     /**
-     *
      * @var TaintedIf[]
      */
     private $taintedBy = [];
-    public function __construct($name)
+    /**
+     * @var TaintedIf[]
+     */
+    private $ifUndefindedTaintedBy = [];
+    private $defined = true;
+    public function __construct(string $name)
     {
         $this->name = $name;
+        if (substr($name, -2) === '()') {
+            $this->defined = false;
+        }
     }
     public function getName()
     {
@@ -20,6 +27,13 @@ class TaintedIf
     }
     public function isTainted()
     {
+        if (!$this->defined) {
+            foreach ($this->taintedBy as $taintedIf) {
+                if ($taintedIf->isTainted()) {
+                    return true;
+                }
+            }
+        }
         foreach ($this->taintedBy as $taintedIf) {
             if ($taintedIf->isTainted()) {
                 return true;
@@ -27,8 +41,19 @@ class TaintedIf
         }
         return false;
     }
+    public function markDefined()
+    {
+        $this->defined = true;
+    }
     public function mayBeTainted()
     {
+        if (!$this->defined) {
+            foreach ($this->taintedBy as $taintedIf) {
+                if ($taintedIf->ifUndefindedTaintedBy()) {
+                    return true;
+                }
+            }
+        }
         foreach ($this->taintedBy as $taintedIf) {
             if ($taintedIf->mayBeTainted()) {
                 return true;
@@ -40,6 +65,12 @@ class TaintedIf
     {
         if (!isset($this->taintedBy[$source->getName()])) {
             $this->taintedBy[$source->getName()] = $source;
+        }
+    }
+    public function addUndefinedFunctionTaintSource(TaintedIf $source)
+    {
+        if (!isset($this->ifUndefindedTaintedBy[$source->getName()])) {
+            $this->ifUndefindedTaintedBy[$source->getName()] = $source;
         }
     }
     public function toString($indent)
