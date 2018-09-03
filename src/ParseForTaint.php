@@ -102,7 +102,6 @@ class ParseForTaint
     {
         if ($node instanceof FuncCall && $this->isStringLike($node->name)) {
             if (!$prefix || $prefix{strlen($prefix)-1} === '\\') {
-                var_dump($prefix.$node->name.'()');
                 return $prefix.$node->name.'()';
             }
             $parts = explode('\\', $prefix);
